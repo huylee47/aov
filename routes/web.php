@@ -15,6 +15,7 @@ Route::post('/save-photo-grid', [PhotoGridController::class, 'saveGrid'])->name(
 Route::get('/photo-grid/{id?}', [PhotoGridController::class, 'getGrid'])->name('photo.get');
 Route::get('/photo-grids', [PhotoGridController::class, 'listGrids'])->name('photo.list');
 Route::delete('/photo-grid/{id}', [PhotoGridController::class, 'deleteGrid'])->name('photo.delete');
+Route::post('/export-photo-grid', [PhotoGridController::class, 'exportGrid'])->name('photo.export');
 
 // Heroes routes
 Route::get('/heroes', [App\Http\Controllers\HerosController::class, 'index'])->name('heroes.index');

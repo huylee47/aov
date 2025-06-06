@@ -162,8 +162,9 @@
             /* Khoảng cách cho ảnh lớn trong export */
             grid-column: span 4 !important;
             /* Đảm bảo span 4 trong export */
-            width: 90% !important;
-            /* 3.6 ô trong export */
+            aspect-ratio: 3.9/1.4 !important;
+            /* Đảm bảo aspect ratio nhất quán với main grid */
+            margin-right: 10px !important;
         }
 
         .export-grid .photo-cell {
@@ -265,9 +266,17 @@
                         <button type="button" class="btn btn-warning" onclick="clearAllImages()">
                             Xóa tất cả ảnh
                         </button>
-                        <button type="button" class="btn btn-primary" onclick="exportToPNG()">
-                            Xuất PNG
-                        </button>
+                        <div class="btn-group" role="group">
+                            <button type="button" class="btn btn-primary" onclick="exportToPNG()">
+                                Xuất PNG (Client)
+                            </button>
+                            <button type="button" class="btn btn-outline-primary" onclick="exportHighQuality()">
+                                Xuất HD (Client)
+                            </button>
+                            <button type="button" class="btn btn-success" onclick="exportToServerSide()">
+                                Xuất PNG (Server)
+                            </button>
+                        </div>
                         <button type="button" class="btn btn-info" onclick="debugGrid(); applyRowBorders();">
                             Debug & Apply Borders
                         </button>
@@ -420,10 +429,8 @@
                         continue;
                     }
 
-                    // Skip ALL cells of row 1 (để trống toàn bộ hàng 1)
-                    if (row === 1) {
-                        continue;
-                    }
+                    // Row 1 và các row khác sẽ có cells bình thường
+                    // (Không skip row 1 nữa để có đủ số hàng như user chọn)
 
                     const cell = document.createElement('div');
                     cell.className = 'photo-cell';
@@ -474,14 +481,12 @@
             for (let r = 0; r < rows; r++) {
                 if (r === 0) {
                     expectedCells += (cols - 3); // Row 0: total cols minus 3 skipped (large cell spans 4)
-                } else if (r === 1) {
-                    expectedCells += 0; // Row 1: completely empty (all cols skipped)
                 } else {
-                    expectedCells += cols; // Other rows: full cols
+                    expectedCells += cols; // All other rows: full cols
                 }
             }
             console.log('Expected cells for', rows, 'x', cols, '=', expectedCells, '(Row 0:', cols - 3,
-                ', Row 1: 0, Rows 2+:', cols, 'each)');
+                ', Rows 1+:', cols, 'each)');
 
             const cellsByRow = {};
             allCells.forEach(cell => {
@@ -923,6 +928,100 @@
             showExportPreview();
         }
 
+        function exportHighQuality() {
+            console.log('🎯 Starting HIGH QUALITY export...');
+
+            if (Object.keys(gridData.images).length === 0) {
+                alert('Vui lòng thêm ít nhất một ảnh trước khi xuất!');
+                return;
+            }
+
+            // Create export container
+            const exportContainer = document.createElement('div');
+            exportContainer.className = 'export-container';
+            exportContainer.style.position = 'absolute';
+            exportContainer.style.left = '-9999px';
+            exportContainer.style.top = '0';
+
+            // Clone the grid for ultra high quality
+            const originalGrid = document.getElementById('photoGrid');
+            const clonedGrid = originalGrid.cloneNode(true);
+            clonedGrid.className = 'export-grid photo-grid';
+
+            // Scale up the grid for higher resolution
+            clonedGrid.style.transform = 'scale(2)';
+            clonedGrid.style.transformOrigin = 'top left';
+
+            // Remove interactive elements
+            const removeButtons = clonedGrid.querySelectorAll('.remove-btn');
+            removeButtons.forEach(btn => btn.remove());
+
+            const cells = clonedGrid.querySelectorAll('.photo-cell');
+            cells.forEach(cell => {
+                cell.onclick = null;
+                cell.style.cursor = 'default';
+            });
+
+            exportContainer.appendChild(clonedGrid);
+            applyRowBordersToElement(clonedGrid);
+            document.body.appendChild(exportContainer);
+
+            // Wait for images to load
+            const clonedImages = clonedGrid.querySelectorAll('img');
+            console.log('🎯 Found', clonedImages.length, 'images for HD export');
+
+            const imagePromises = Array.from(clonedImages).map((img, index) => {
+                return new Promise((resolve) => {
+                    if (img.complete && img.naturalWidth > 0) {
+                        resolve();
+                    } else {
+                        img.onload = () => resolve();
+                        img.onerror = () => resolve();
+                    }
+                });
+            });
+
+            Promise.all(imagePromises).then(() => {
+                console.log('🎯 All images loaded for HD export, processing...');
+
+                // Ultra high-quality options
+                const options = {
+                    backgroundColor: '#ffffff',
+                    scale: 5, // Ultra high resolution
+                    useCORS: true,
+                    allowTaint: true,
+                    logging: false,
+                    width: clonedGrid.offsetWidth * 2, // Account for transform scale
+                    height: clonedGrid.offsetHeight * 2,
+                    dpi: 300,
+                    pixelRatio: 4
+                };
+
+                console.log('🎯 Starting HD html2canvas - Final size will be:',
+                    options.width * options.scale, 'x', options.height * options.scale);
+
+                html2canvas(clonedGrid, options).then(canvas => {
+                    console.log('✅ HD Export successful - Canvas size:', canvas.width, 'x', canvas.height);
+
+                    // Create download link
+                    const link = document.createElement('a');
+                    link.download = `photo-grid-HD-${Date.now()}.png`;
+                    link.href = canvas.toDataURL('image/png', 1.0);
+
+                    document.body.appendChild(link);
+                    link.click();
+                    document.body.removeChild(link);
+
+                    document.body.removeChild(exportContainer);
+                    alert('🎯 Xuất HD thành công! Kích thước: ' + canvas.width + 'x' + canvas.height);
+                }).catch(error => {
+                    console.error('❌ HD Export failed:', error);
+                    document.body.removeChild(exportContainer);
+                    alert('HD Export failed: ' + error.message);
+                });
+            });
+        }
+
         function showExportPreview() {
             // Create export container
             const exportContainer = document.createElement('div');
@@ -1020,44 +1119,196 @@
             });
 
             exportContainer.appendChild(clonedGrid);
+
+            // Apply row borders for export
+            console.log('🔥 Applying borders for final export...');
+            applyRowBordersToElement(clonedGrid);
             document.body.appendChild(exportContainer);
 
-            // High-quality export options
-            const options = {
-                backgroundColor: '#ffffff',
-                scale: 3, // Higher quality for final export
-                useCORS: true,
-                allowTaint: true,
-                logging: false,
-                width: clonedGrid.offsetWidth,
-                height: clonedGrid.offsetHeight
-            };
+            // Wait for images to load
+            const clonedImages = clonedGrid.querySelectorAll('img');
+            console.log('🔥 Found', clonedImages.length, 'images in cloned grid');
 
-            // Generate final image
-            html2canvas(clonedGrid, options).then(canvas => {
-                // Create download link
-                const link = document.createElement('a');
-                link.download = `photo-grid-${gridData.cols}x${gridData.rows}-${Date.now()}.png`;
-                link.href = canvas.toDataURL('image/png', 1.0);
-
-                // Trigger download
-                document.body.appendChild(link);
-                link.click();
-                document.body.removeChild(link);
-
-                // Clean up
-                document.body.removeChild(exportContainer);
-
-                // Close modal
-                const modal = bootstrap.Modal.getInstance(document.getElementById('exportModal'));
-                modal.hide();
-
-                alert('Đã xuất ảnh thành công!');
-            }).catch(error => {
-                console.error('Lỗi khi xuất ảnh:', error);
-                alert('Có lỗi xảy ra khi xuất ảnh!');
-                document.body.removeChild(exportContainer);
+            const imagePromises = Array.from(clonedImages).map((img, index) => {
+                return new Promise((resolve) => {
+                    if (img.complete && img.naturalWidth > 0) {
+                        console.log(`✅ Image ${index} already loaded`);
+                        resolve();
+                    } else {
+                        console.log(`⚠️ Waiting for image ${index} to load...`);
+                        img.onload = () => {
+                            console.log(`✅ Image ${index} loaded`);
+                            resolve();
+                        };
+                        img.onerror = () => {
+                            console.error(`❌ Image ${index} failed to load`);
+                            resolve(); // Continue anyway
+                        };
+                    }
+                });
             });
+
+            Promise.all(imagePromises).then(() => {
+                console.log('✅ All images loaded, starting export...');
+
+                // High-quality export options
+                const options = {
+                    backgroundColor: '#ffffff',
+                    scale: 3, // High resolution for quality
+                    useCORS: true,
+                    allowTaint: true,
+                    logging: false, // Disable logging for production
+                    width: clonedGrid.offsetWidth,
+                    height: clonedGrid.offsetHeight,
+                    dpi: 300, // High DPI for print quality
+                    pixelRatio: 3 // High pixel ratio
+                };
+
+                // Generate final image
+                console.log('🔥 Starting html2canvas for final export...');
+                console.log('🔥 Export options:', options);
+                console.log('🔥 Cloned grid dimensions:', clonedGrid.offsetWidth, 'x', clonedGrid.offsetHeight);
+
+                html2canvas(clonedGrid, options).then(canvas => {
+                    console.log('✅ html2canvas successful - Canvas size:', canvas.width, 'x', canvas
+                        .height);
+
+                    // Debug canvas data
+                    const dataURL = canvas.toDataURL('image/png', 1.0);
+                    console.log('🔍 Canvas dataURL length:', dataURL.length);
+                    console.log('🔍 Canvas dataURL starts with:', dataURL.substring(0, 50));
+
+                    if (dataURL.length < 100) {
+                        console.error('❌ Canvas dataURL too short - likely empty canvas');
+                        alert('Export failed: Canvas data is empty. Check if images loaded properly.');
+                        document.body.removeChild(exportContainer);
+                        return;
+                    }
+
+                    // Create download link
+                    const link = document.createElement('a');
+                    link.download = `photo-grid-${Date.now()}.png`;
+                    link.href = dataURL;
+
+                    // Trigger download
+                    document.body.appendChild(link);
+                    link.click();
+                    document.body.removeChild(link);
+
+                    // Clean up
+                    document.body.removeChild(exportContainer);
+
+                    // Close modal
+                    const modal = bootstrap.Modal.getInstance(document.getElementById('exportModal'));
+                    modal.hide();
+
+                    console.log('✅ Export completed successfully');
+                    alert('Đã xuất ảnh thành công!');
+                }).catch(error => {
+                    console.error('❌ Lỗi khi xuất ảnh:', error);
+                    console.error('❌ Error details:', error.message, error.stack);
+
+                    // Try server-side export as fallback
+                    console.log('🚀 Trying server-side export as fallback...');
+                    document.body.removeChild(exportContainer);
+                    exportToServerSide();
+                });
+            }).catch(error => {
+                console.error('❌ Image loading error:', error);
+                document.body.removeChild(exportContainer);
+                exportToServerSide();
+            });
+        }
+
+        function exportToServerSide() {
+            console.log('🚀 Starting server-side export...');
+
+            if (Object.keys(gridData.images).length === 0) {
+                alert('Vui lòng thêm ít nhất một ảnh trước khi xuất!');
+                return;
+            }
+
+            // Create a clean version of the grid for export
+            const originalGrid = document.getElementById('photoGrid');
+            const clonedGrid = originalGrid.cloneNode(true);
+
+            // Remove interactive elements
+            const removeButtons = clonedGrid.querySelectorAll('.remove-btn');
+            removeButtons.forEach(btn => btn.remove());
+
+            // Remove click handlers
+            const cells = clonedGrid.querySelectorAll('.photo-cell');
+            cells.forEach(cell => {
+                cell.onclick = null;
+                cell.style.cursor = 'default';
+            });
+
+            // Apply borders
+            applyRowBordersToElement(clonedGrid);
+
+            // Convert images to inline base64 for server export
+            const images = clonedGrid.querySelectorAll('img');
+            console.log('🚀 Converting', images.length, 'images to base64...');
+
+            images.forEach((img, index) => {
+                if (img.src.startsWith('data:image/')) {
+                    console.log(`✅ Image ${index} already base64`);
+                } else {
+                    console.log(`⚠️ Image ${index} is URL, may cause server timeout`);
+                }
+            });
+
+            // Get HTML content
+            const gridHtml = clonedGrid.outerHTML;
+
+            console.log('🚀 Sending to server for export...');
+
+            // Send to server
+            fetch('/export-photo-grid', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]').getAttribute(
+                            'content')
+                    },
+                    body: JSON.stringify({
+                        gridHtml: gridHtml,
+                        width: originalGrid.offsetWidth,
+                        height: originalGrid.offsetHeight
+                    })
+                })
+                .then(response => response.json())
+                .then(data => {
+                    if (data.success) {
+                        console.log('✅ Server-side export successful');
+
+                        // Create download link
+                        const link = document.createElement('a');
+                        link.href = data.download_url;
+                        link.download = data.filename;
+                        link.target = '_blank';
+
+                        document.body.appendChild(link);
+                        link.click();
+                        document.body.removeChild(link);
+
+                        alert('Export thành công! File đã được tải xuống.');
+                    } else {
+                        console.error('❌ Server-side export failed:', data.message);
+                        alert('Server export failed: ' + data.message);
+                    }
+                })
+                .catch(error => {
+                    console.error('❌ Server-side export error:', error);
+
+                    // Final fallback - screenshot using modern API
+                    if (navigator.mediaDevices && navigator.mediaDevices.getDisplayMedia) {
+                        console.log('🚀 Trying screen capture API as final fallback...');
+                        alert('Server export failed. Please use browser screenshot tool or try again.');
+                    } else {
+                        alert('All export methods failed. Error: ' + error.message);
+                    }
+                });
         }
 
         // Skin selection functionality
@@ -1099,7 +1350,8 @@
 
                         if (heroesData.success) {
                             heroesData.data.forEach(hero => {
-                                heroSelect.innerHTML += `<option value="${hero.id}">${hero.name}</option>`;
+                                heroSelect.innerHTML +=
+                                    `<option value="${hero.id}">${hero.name}</option>`;
                             });
                         }
 
@@ -1159,7 +1411,8 @@
 
         function filterSkins(searchTerm, heroId) {
             filteredSkins = allSkins.filter(skin => {
-                const matchesSearch = !searchTerm || skin.name.toLowerCase().includes(searchTerm) || skin.hero_name
+                const matchesSearch = !searchTerm || skin.name.toLowerCase().includes(searchTerm) ||
+                    skin.hero_name
                     .toLowerCase().includes(searchTerm);
                 const matchesHero = !heroId || skin.hero_id.toString() === heroId;
                 return matchesSearch && matchesHero;
