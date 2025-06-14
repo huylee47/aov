@@ -1125,9 +1125,21 @@
             applyRowBordersToElement(clonedGrid);
             document.body.appendChild(exportContainer);
 
+            // Debug: log width/height
+            console.log('DEBUG clonedGrid.offsetWidth:', clonedGrid.offsetWidth, 'offsetHeight:', clonedGrid.offsetHeight);
+            if (clonedGrid.offsetWidth === 0 || clonedGrid.offsetHeight === 0) {
+                // Ép width/height giống photoGrid
+                clonedGrid.style.width = originalGrid.offsetWidth + 'px';
+                clonedGrid.style.height = originalGrid.offsetHeight + 'px';
+                console.log('DEBUG forced width/height:', clonedGrid.style.width, clonedGrid.style.height);
+            }
+
             // Wait for images to load
             const clonedImages = clonedGrid.querySelectorAll('img');
             console.log('🔥 Found', clonedImages.length, 'images in cloned grid');
+            clonedImages.forEach((img, idx) => {
+                console.log(`Image ${idx} src:`, img.src);
+            });
 
             const imagePromises = Array.from(clonedImages).map((img, index) => {
                 return new Promise((resolve) => {
@@ -1171,7 +1183,7 @@
 
                 html2canvas(clonedGrid, options).then(canvas => {
                     console.log('✅ html2canvas successful - Canvas size:', canvas.width, 'x', canvas
-                        .height);
+                    .height);
 
                     // Debug canvas data
                     const dataURL = canvas.toDataURL('image/png', 1.0);
@@ -1179,7 +1191,25 @@
                     console.log('🔍 Canvas dataURL starts with:', dataURL.substring(0, 50));
 
                     if (dataURL.length < 100) {
-                        console.error('❌ Canvas dataURL too short - likely empty canvas');
+                        console.error(
+                            '❌ Dataurl ngắn - có vẻ chưa có dữ liệu, thử dùng exportCanvas của preview');
+                        // Thử dùng exportCanvas (canvas của preview)
+                        try {
+                            const previewDataURL = exportCanvas.toDataURL('image/png', 1.0);
+                            if (previewDataURL.length > 100) {
+                                const link = document.createElement('a');
+                                link.download = `photo-grid-preview-${Date.now()}.png`;
+                                link.href = previewDataURL;
+                                document.body.appendChild(link);
+                                link.click();
+                                document.body.removeChild(link);
+                                document.body.removeChild(exportContainer);
+                                alert('Đã xuất ảnh từ preview canvas!');
+                                return;
+                            }
+                        } catch (e) {
+                            console.error('❌ Xuất từ preview canvas cũng lỗi:', e);
+                        }
                         alert('Export failed: Canvas data is empty. Check if images loaded properly.');
                         document.body.removeChild(exportContainer);
                         return;
@@ -1220,7 +1250,7 @@
             });
         }
 
-     
+
         function exportToServerSide() {
             console.log('🚀 Starting server-side export...');
 
