@@ -180,7 +180,7 @@ class PhotoGridController extends Controller
                         margin: 0; 
                         padding: 20px; 
                         font-family: Arial, sans-serif;
-                        background: white;
+                        background:  #6e7db8;
                     }
                     .photo-grid {
                         display: grid;
@@ -196,7 +196,7 @@ class PhotoGridController extends Controller
                         display: flex;
                         align-items: center;
                         justify-content: center;
-                        background-color: #f8f9fa;
+                        background-color: #ffffff;
                         overflow: hidden;
                         position: relative;
                     }
@@ -246,8 +246,8 @@ class PhotoGridController extends Controller
                 ->deviceScaleFactor(1)
                 ->format('png')
                 ->quality(90)
-                ->timeout(60)
-                ->setChromePath(null) // Use system Chrome if available
+                ->timeout(500)
+                // ->setChromePath(null) 
                 ->noSandbox()
                 ->dismissDialogs()
                 ->blockUrls(['*.png', '*.jpg', '*.jpeg', '*.gif', '*.svg']) // Block external images for speed
@@ -261,7 +261,7 @@ class PhotoGridController extends Controller
                     'filename' => $filename
                 ]);
             } else {
-                throw new \Exception('Failed to generate image file');
+                throw new \Exception('XUất file không thành công');
             }
 
         } catch (\Exception $e) {

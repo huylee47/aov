@@ -151,15 +151,15 @@
             background: white;
             padding: 0;
             box-shadow: none;
-            row-gap: 15px !important;
-            /* Khoảng cách lớn hơn giữa các hàng */
+            row-gap: 10px !important;
+            /* Giảm khoảng cách giữa các hàng */
             column-gap: 0px !important;
             /* Không có khoảng cách giữa các cột */
         }
 
         .export-grid .large-cell {
-            margin-bottom: 35px !important;
-            /* Khoảng cách cho ảnh lớn trong export */
+            margin-bottom: 0px !important;
+            /* Bỏ margin-bottom để không bị cách quá xa hàng 2 */
             grid-column: span 4 !important;
             /* Đảm bảo span 4 trong export */
             aspect-ratio: 3.9/1.4 !important;
@@ -1220,6 +1220,7 @@
             });
         }
 
+     
         function exportToServerSide() {
             console.log('🚀 Starting server-side export...');
 
@@ -1294,17 +1295,17 @@
 
                         alert('Export thành công! File đã được tải xuống.');
                     } else {
-                        console.error('❌ Server-side export failed:', data.message);
-                        alert('Server export failed: ' + data.message);
+                        console.error('❌Xuất ảnh thất bại', data.message);
+                        alert('Xuất ảnh thất bại: ' + data.message);
                     }
                 })
                 .catch(error => {
-                    console.error('❌ Server-side export error:', error);
+                    console.error('❌ Lỗi yêu cầu , vui lòng liên hệ quản trị viên:', error);
 
                     // Final fallback - screenshot using modern API
                     if (navigator.mediaDevices && navigator.mediaDevices.getDisplayMedia) {
                         console.log('🚀 Trying screen capture API as final fallback...');
-                        alert('Server export failed. Please use browser screenshot tool or try again.');
+                        alert('Lỗi yêu cầu , thử lại.');
                     } else {
                         alert('All export methods failed. Error: ' + error.message);
                     }
